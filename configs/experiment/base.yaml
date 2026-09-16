@@ -1,0 +1,55 @@
+experiment:
+  name: world_model_base
+  seed: 42
+  deterministic: true
+paths:
+  data_root: ${CYBERWORLD_DATA_ROOT:data}
+  trajectory_dir: ${CYBERWORLD_DATA_ROOT:data}/processed/trajectories
+  artifact_root: ${CYBERWORLD_ARTIFACT_ROOT:artifacts}
+  checkpoint_root: ${CYBERWORLD_CHECKPOINT_ROOT:checkpoints}
+  run_root: ${CYBERWORLD_RUN_ROOT:runs}
+data:
+  feature_dim: 48
+  num_stages: 9
+  history_windows: 6
+  forecast_windows: 6
+  window_seconds: 10
+  label_coverage_threshold: 0.80
+  batch_size: 128
+  num_workers: 0
+  pin_memory: true
+  synthetic_if_missing: false
+  synthetic_trajectories: 32
+  synthetic_length: 120
+model:
+  architecture: latent_jepa
+  hidden_dim: 128
+  projection_dim: 128
+  latent_dim: 96
+  num_layers: 2
+  dropout: 0.15
+  min_log_variance: -8.0
+  max_log_variance: 5.0
+training:
+  device: ${CYBERWORLD_DEVICE:auto}
+  epochs: 40
+  learning_rate: 0.0003
+  weight_decay: 0.0001
+  gradient_clip_norm: 1.0
+  accumulate_steps: 1
+  teacher_forcing_ratio: 0.5
+  early_stopping_patience: 8
+  mixed_precision: true
+  compile: false
+  validation_fraction: 0.20
+  lambda_state: 1.0
+  lambda_stage: 0.5
+  lambda_malicious: 0.5
+  lambda_compromise: 0.5
+  lambda_jepa: 0.25
+  vicreg_invariance: 25.0
+  vicreg_variance: 25.0
+  vicreg_covariance: 1.0
+logging:
+  log_every_steps: 25
+  save_every_epochs: 1

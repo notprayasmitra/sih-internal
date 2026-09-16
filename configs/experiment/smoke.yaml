@@ -1,0 +1,26 @@
+extends: base.yaml
+experiment:
+  name: world_model_smoke
+  seed: 7
+  deterministic: true
+data:
+  feature_dim: 16
+  history_windows: 4
+  forecast_windows: 3
+  batch_size: 16
+  synthetic_if_missing: true
+  synthetic_trajectories: 8
+  synthetic_length: 36
+model:
+  architecture: probabilistic_lstm
+  hidden_dim: 32
+  projection_dim: 32
+  latent_dim: 16
+  num_layers: 1
+  dropout: 0.0
+training:
+  epochs: 2
+  early_stopping_patience: 2
+  mixed_precision: false
+logging:
+  log_every_steps: 1
