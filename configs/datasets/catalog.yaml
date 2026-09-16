@@ -1,0 +1,32 @@
+datasets:
+  - dataset_id: cic_ids2018
+    enabled: true
+    input_globs:
+      - data/raw/cic_ids2018/*_TrafficForML_CICFlowMeter.csv
+    scenario_strategy: filename
+
+  - dataset_id: ctu13
+    enabled: true
+    input_globs:
+      - data/raw/ctu13/**/capture*.binetflow
+    scenario_strategy: parent_directory
+
+  - dataset_id: dapt2020
+    enabled: true
+    input_globs:
+      - data/raw/dapt2020/**/*.csv
+    scenario_strategy: filename
+
+  - dataset_id: unsw_nb15
+    enabled: false
+    input_globs:
+      - data/raw/unsw_nb15/UNSW-NB15_[1-4].csv
+    scenario_strategy: filename
+    note: Enable only after attaching the official feature-name header and event timeline.
+
+  - dataset_id: cicapt_iiot2024
+    enabled: false
+    input_globs:
+      - data/raw/cicapt_iiot2024/**/*.csv
+    scenario_strategy: parent_directory
+    note: Requires the dedicated packet/timeline adapter before enablement.

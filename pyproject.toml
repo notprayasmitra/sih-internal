@@ -1,0 +1,61 @@
+[build-system]
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cyberworld"
+version = "0.1.0"
+description = "Probabilistic cybersecurity world model for predictive cyber defence"
+readme = "README.md"
+requires-python = ">=3.11,<3.14"
+license = { text = "Proprietary" }
+dependencies = [
+  "numpy>=2.0,<3",
+  "pandas>=2.2,<4",
+  "pyarrow>=17,<22",
+  "pydantic>=2.9,<3",
+  "python-dotenv>=1.0,<2",
+  "pyyaml>=6.0,<7",
+  "scikit-learn>=1.5,<2",
+  "torch>=2.5,<3",
+  "tqdm>=4.66,<5",
+]
+
+[project.optional-dependencies]
+pcap = ["scapy>=2.6,<3"]
+eda = [
+  "ipykernel>=6.29,<8",
+  "jupyterlab>=4.3,<5",
+  "matplotlib>=3.9,<4",
+]
+dev = [
+  "mypy>=1.13,<2",
+  "pandas-stubs>=2.2",
+  "pytest>=8.3,<10",
+  "pytest-cov>=6,<8",
+  "ruff>=0.8,<1",
+  "types-pyyaml>=6.0",
+]
+
+[project.scripts]
+cyberworld = "cyberworld.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cyberworld"]
+
+[tool.pytest.ini_options]
+addopts = "-ra --strict-markers"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unreachable = true
+packages = ["cyberworld"]
