@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -65,8 +65,16 @@ class ModelConfig(StrictModel):
 
     @model_validator(mode="after")
     def validate_variance_bounds(self) -> ModelConfig:
-        if self.architecture not in {"probabilistic_lstm", "latent_jepa"}:
-            raise ValueError("architecture must be probabilistic_lstm or latent_jepa")
+        if self.architecture not in {
+            "probabilistic_lstm",
+            "latent_jepa",
+            "temporal_transformer",
+            "temporal_cnn",
+        }:
+            raise ValueError(
+                "architecture must be probabilistic_lstm, latent_jepa, "
+                "temporal_transformer, or temporal_cnn"
+            )
         if self.min_log_variance >= self.max_log_variance:
             raise ValueError("min_log_variance must be below max_log_variance")
         return self
@@ -84,6 +92,9 @@ class TrainingConfig(StrictModel):
     mixed_precision: bool = True
     compile: bool = False
     validation_fraction: float = Field(default=0.2, gt=0.0, lt=1.0)
+    train_trajectory_ids: tuple[str, ...] | None = None
+    validation_trajectory_ids: tuple[str, ...] | None = None
+    stage_class_weighting: Literal["none", "inverse_frequency"] = "none"
     lambda_state: float = Field(default=1.0, ge=0)
     lambda_stage: float = Field(default=0.5, ge=0)
     lambda_malicious: float = Field(default=0.5, ge=0)
@@ -92,6 +103,27 @@ class TrainingConfig(StrictModel):
     vicreg_invariance: float = Field(default=25.0, ge=0)
     vicreg_variance: float = Field(default=25.0, ge=0)
     vicreg_covariance: float = Field(default=1.0, ge=0)
+
+    @model_validator(mode="after")
+    def validate_explicit_trajectory_split(self) -> TrainingConfig:
+        train_ids = self.train_trajectory_ids
+        validation_ids = self.validation_trajectory_ids
+        if (train_ids is None) != (validation_ids is None):
+            raise ValueError(
+                "train_trajectory_ids and validation_trajectory_ids must be configured together"
+            )
+        if train_ids is None or validation_ids is None:
+            return self
+        if not train_ids or not validation_ids:
+            raise ValueError("explicit trajectory split lists must be non-empty")
+        if len(set(train_ids)) != len(train_ids) or len(set(validation_ids)) != len(
+            validation_ids
+        ):
+            raise ValueError("explicit trajectory split lists must not contain duplicates")
+        overlap = set(train_ids) & set(validation_ids)
+        if overlap:
+            raise ValueError(f"explicit trajectory split lists overlap: {sorted(overlap)}")
+        return self
 
 
 class LoggingConfig(StrictModel):

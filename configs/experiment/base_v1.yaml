@@ -1,0 +1,14 @@
+extends: base.yaml
+
+experiment:
+  name: world_model_base_v1
+
+paths:
+  trajectory_dir: /tmp/cyberworld_base_v1_cic
+
+data:
+  pin_memory: false
+
+training:
+  epochs: 10
+  early_stopping_patience: 3

@@ -40,8 +40,19 @@ class StandardNormalizer:
             availability=trajectory.availability,
             stages=trajectory.stages,
             label_valid=trajectory.label_valid,
+            risk_malicious=trajectory.risk_malicious,
+            risk_compromise=trajectory.risk_compromise,
+            risk_valid=trajectory.risk_valid,
         )
 
     def save(self, path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         np.savez(path, mean=self.mean, scale=self.scale)
+
+    @classmethod
+    def load(cls, path: Path) -> StandardNormalizer:
+        with np.load(path, allow_pickle=False) as payload:
+            return cls(
+                mean=np.asarray(payload["mean"], dtype=np.float32),
+                scale=np.asarray(payload["scale"], dtype=np.float32),
+            )

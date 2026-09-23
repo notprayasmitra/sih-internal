@@ -28,7 +28,7 @@ decisions, label rationale, dataset roles, and acceptance criteria remain in
 
 - `adapters/flow_csv.py` maps source headers and labels to canonical columns
   while preserving original labels.
-- `preprocessing.py` aggregates flows into the 48-feature state schema and
+- `preprocessing.py` aggregates flows into the 51-feature state schema and
   retains empty time windows.
 - `data/trajectory.py` validates `.npz` artifacts and creates samples without
   crossing scenario boundaries.

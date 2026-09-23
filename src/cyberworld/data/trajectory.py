@@ -21,6 +21,9 @@ class Trajectory:
     availability: np.ndarray
     stages: np.ndarray
     label_valid: np.ndarray
+    risk_malicious: np.ndarray | None = None
+    risk_compromise: np.ndarray | None = None
+    risk_valid: np.ndarray | None = None
 
     def validate(self, feature_dim: int, num_stages: int) -> None:
         if self.states.ndim != 2 or self.states.shape[1] != feature_dim:
@@ -31,6 +34,13 @@ class Trajectory:
             raise ValueError(f"{self.trajectory_id}: stage shape mismatch")
         if self.label_valid.shape != (len(self.states),):
             raise ValueError(f"{self.trajectory_id}: label_valid shape mismatch")
+        for name, values in (
+            ("risk_malicious", self.risk_malicious),
+            ("risk_compromise", self.risk_compromise),
+            ("risk_valid", self.risk_valid),
+        ):
+            if values is not None and values.shape != (len(self.states),):
+                raise ValueError(f"{self.trajectory_id}: {name} shape mismatch")
         if not np.isfinite(self.states).all():
             raise ValueError(f"{self.trajectory_id}: non-finite state values")
         if np.any((self.availability < 0) | (self.availability > 1)):
@@ -54,6 +64,21 @@ def load_trajectories(directory: Path, feature_dim: int, num_stages: int) -> lis
                 label_valid=np.asarray(
                     payload.get("label_valid", np.ones(len(payload["states"]))),
                     dtype=np.float32,
+                ),
+                risk_malicious=(
+                    np.asarray(payload["risk_malicious"], dtype=np.float32)
+                    if "risk_malicious" in payload
+                    else None
+                ),
+                risk_compromise=(
+                    np.asarray(payload["risk_compromise"], dtype=np.float32)
+                    if "risk_compromise" in payload
+                    else None
+                ),
+                risk_valid=(
+                    np.asarray(payload["risk_valid"], dtype=np.float32)
+                    if "risk_valid" in payload
+                    else None
                 ),
             )
         trajectory.validate(feature_dim, num_stages)
@@ -92,6 +117,21 @@ class TrajectoryWindowDataset(Dataset[dict[str, Tensor]]):
         valid = trajectory.label_valid[split:end]
         malicious = np.asarray([is_reliably_malicious(x) for x in stages], dtype=np.float32)
         compromise = np.asarray([is_compromise(x) for x in stages], dtype=np.float32)
+        risk_valid = (
+            trajectory.risk_valid[split:end]
+            if trajectory.risk_valid is not None
+            else valid * (stages != int(AttackStage.UNKNOWN))
+        )
+        risk_malicious = (
+            trajectory.risk_malicious[split:end]
+            if trajectory.risk_malicious is not None
+            else malicious
+        )
+        risk_compromise = (
+            trajectory.risk_compromise[split:end]
+            if trajectory.risk_compromise is not None
+            else compromise
+        )
         valid = valid * (stages != int(AttackStage.UNKNOWN))
         return {
             "history": torch.from_numpy(trajectory.states[start:split]),
@@ -102,5 +142,8 @@ class TrajectoryWindowDataset(Dataset[dict[str, Tensor]]):
             "future_label_valid": torch.from_numpy(valid.astype(np.float32)),
             "future_malicious": torch.from_numpy(malicious),
             "future_compromise": torch.from_numpy(compromise),
+            "future_risk_malicious": torch.from_numpy(risk_malicious.astype(np.float32)),
+            "future_risk_compromise": torch.from_numpy(risk_compromise.astype(np.float32)),
+            "future_risk_valid": torch.from_numpy(risk_valid.astype(np.float32)),
             "trajectory_index": torch.tensor(trajectory_index, dtype=torch.int64),
         }

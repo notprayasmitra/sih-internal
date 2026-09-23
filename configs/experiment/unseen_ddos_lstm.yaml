@@ -1,0 +1,27 @@
+extends: base.yaml
+
+experiment:
+  name: world_model_unseen_ddos_lstm
+
+data:
+  feature_dim: 51
+
+model:
+  architecture: probabilistic_lstm
+
+training:
+  epochs: 100
+  early_stopping_patience: 8
+  train_trajectory_ids:
+    - cic_ids2018:wednesday-14-02-2018_trafficforml_cicflowmeter
+    - cic_ids2018:friday-16-02-2018_trafficforml_cicflowmeter
+    - cic_ids2018:thursday-22-02-2018_trafficforml_cicflowmeter
+    - cic_ids2018:wednesday-28-02-2018_trafficforml_cicflowmeter
+    - cic_ids2018:thursday-01-03-2018_trafficforml_cicflowmeter
+    - ctu13:scenario_01
+    - ctu13:scenario_09
+    - ctu13:scenario_10
+    - ctu13:scenario_11
+  validation_trajectory_ids:
+    - cic_ids2018:thuesday-20-02-2018_trafficforml_cicflowmeter
+    - cic_ids2018:wednesday-21-02-2018_trafficforml_cicflowmeter

@@ -8,7 +8,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from cyberworld.labels import AttackStage
+from cyberworld.labels import COMPROMISE_STAGES, AttackStage
 
 STATE_FEATURES = (
     "total_flows",
@@ -45,10 +45,13 @@ STATE_FEATURES = (
     "urg_rate",
     "mean_tcp_win_fwd",
     "mean_tcp_win_bwd",
+    "tcp_window_var_fwd",
+    "tcp_window_var_bwd",
     "retransmission_rate",
     "mean_ttl",
     "ttl_variance",
     "fragment_rate",
+    "fragment_presence",
     "payload_mean",
     "payload_std",
     "payload_min",
@@ -60,6 +63,8 @@ STATE_FEATURES = (
     "incomplete_handshake_ratio",
     "bytes_per_packet",
 )
+
+RISK_MALICIOUS_FRACTION_THRESHOLD = 0.01
 
 
 def _available(series: pd.Series) -> bool:
@@ -89,6 +94,20 @@ def _protocol_counts(frame: pd.DataFrame) -> tuple[float, float, float]:
     tcp = text.isin({"6", "tcp", "6.0"})
     udp = text.isin({"17", "udp", "17.0"})
     return float(tcp.sum()), float(udp.sum()), float((~tcp & ~udp).sum())
+
+
+def _moment_stat(
+    frame: pd.DataFrame, count_column: str, sum_column: str, sumsq_column: str
+) -> tuple[float, float]:
+    if not all(column in frame.columns for column in (count_column, sum_column, sumsq_column)):
+        return 0.0, 0.0
+    count = float(frame[count_column].fillna(0).sum())
+    if count <= 0:
+        return 0.0, 0.0
+    total = float(frame[sum_column].fillna(0).sum())
+    sumsq = float(frame[sumsq_column].fillna(0).sum())
+    mean = total / count
+    return max(0.0, sumsq / count - mean * mean), 1.0
 
 
 def _scan_statistics(frame: pd.DataFrame) -> tuple[float, float, float, float]:
@@ -165,8 +184,22 @@ def aggregate_window(frame: pd.DataFrame, window_seconds: int) -> tuple[np.ndarr
         ("max_iat", "flow_iat_max_s", "max"),
         ("mean_tcp_win_fwd", "tcp_window_fwd", "mean"),
         ("mean_tcp_win_bwd", "tcp_window_bwd", "mean"),
+        ("tcp_window_var_fwd", "tcp_window_var_fwd", "mean"),
+        ("tcp_window_var_bwd", "tcp_window_var_bwd", "mean"),
     ):
-        values[target] = _stat(frame, source, operation)
+        values[target] = _stat(frame, source, operation) if source in frame.columns else (0.0, 0.0)
+    for target, prefix in (
+        ("tcp_window_var_fwd", "fwd"),
+        ("tcp_window_var_bwd", "bwd"),
+    ):
+        moment = _moment_stat(
+            frame,
+            f"tcp_window_count_{prefix}",
+            f"tcp_window_sum_{prefix}",
+            f"tcp_window_sumsq_{prefix}",
+        )
+        if moment[1]:
+            values[target] = moment
     packets = values["total_packets"]
     for target, source in (
         ("syn_rate", "syn_count"),
@@ -181,7 +214,13 @@ def aggregate_window(frame: pd.DataFrame, window_seconds: int) -> tuple[np.ndarr
         values[target] = (count[0] / max(1.0, packets[0]), available)
     ttl = pd.concat([frame["ttl_fwd"], frame["ttl_bwd"]]).dropna()
     values["mean_ttl"] = (float(ttl.mean()), 1.0) if not ttl.empty else (0.0, 0.0)
-    values["ttl_variance"] = (float(ttl.var(ddof=0)), 1.0) if not ttl.empty else (0.0, 0.0)
+    ttl_moment = _moment_stat(frame, "ttl_count", "ttl_sum", "ttl_sumsq")
+    if ttl_moment[1]:
+        values["ttl_variance"] = ttl_moment
+    elif "ttl_variance" in frame.columns and frame["ttl_variance"].notna().any():
+        values["ttl_variance"] = _stat(frame, "ttl_variance", "mean")
+    else:
+        values["ttl_variance"] = (float(ttl.var(ddof=0)), 1.0) if not ttl.empty else (0.0, 0.0)
     for target, source in (
         ("payload_mean", "payload_size_mean"),
         ("payload_std", "payload_size_std"),
@@ -209,6 +248,13 @@ def aggregate_window(frame: pd.DataFrame, window_seconds: int) -> tuple[np.ndarr
         fragments[0] / max(1.0, packets[0]),
         fragments[1] * packets[1],
     )
+    if "ip_fragment_count" in frame.columns and fragments[1]:
+        values["fragment_presence"] = (
+            float((frame["ip_fragment_count"].fillna(0) > 0).any()),
+            1.0,
+        )
+    else:
+        values["fragment_presence"] = (0.0, 0.0)
     scan = _scan_statistics(frame)
     for name, value in zip(
         ("dst_port_fanout", "dst_host_fanout", "sequential_port_ratio", "randomized_port_score"),
@@ -242,6 +288,7 @@ def build_trajectory(
     groups = {int(index): group for index, group in frame.groupby(window_index, sort=True)}
     final_index = max(groups)
     states, availability, stages, label_valid = [], [], [], []
+    risk_malicious, risk_compromise, risk_valid = [], [], []
     empty = frame.iloc[0:0]
     for index in range(final_index + 1):
         group = groups.get(index, empty)
@@ -251,9 +298,30 @@ def build_trajectory(
         if group.empty:
             stages.append(int(AttackStage.UNKNOWN))
             label_valid.append(0.0)
+            risk_malicious.append(0.0)
+            risk_compromise.append(0.0)
+            risk_valid.append(0.0)
             continue
         valid = group[group["label_valid"] > 0]
         coverage = len(valid) / len(group)
+        risk_valid.append(float(not valid.empty))
+        if valid.empty:
+            risk_malicious.append(0.0)
+            risk_compromise.append(0.0)
+        else:
+            valid_stages = valid["operational_stage"]
+            malicious_count = int(
+                (~valid_stages.isin((int(AttackStage.NORMAL), int(AttackStage.UNKNOWN)))).sum()
+            )
+            compromise_count = int(
+                valid_stages.isin(tuple(int(stage) for stage in COMPROMISE_STAGES)).sum()
+            )
+            risk_malicious.append(
+                float(malicious_count / len(group) >= RISK_MALICIOUS_FRACTION_THRESHOLD)
+            )
+            risk_compromise.append(
+                float(compromise_count / len(group) >= RISK_MALICIOUS_FRACTION_THRESHOLD)
+            )
         if valid.empty or coverage < 0.8:
             stages.append(int(AttackStage.UNKNOWN))
             label_valid.append(0.0)
@@ -269,6 +337,9 @@ def build_trajectory(
         availability=np.stack(availability),
         stages=np.asarray(stages, dtype=np.int64),
         label_valid=np.asarray(label_valid, dtype=np.float32),
+        risk_malicious=np.asarray(risk_malicious, dtype=np.float32),
+        risk_compromise=np.asarray(risk_compromise, dtype=np.float32),
+        risk_valid=np.asarray(risk_valid, dtype=np.float32),
         feature_names=np.asarray(STATE_FEATURES),
     )
     return output_path
