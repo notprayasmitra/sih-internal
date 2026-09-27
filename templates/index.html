@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RakshaDrishti · Network Risk</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/"><span>RakshaDrishti</span></a>
+    <nav><a href="/">Dashboard</a><a href="/how-it-works">How it works</a></nav>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div><p class="eyebrow">NETWORK RISK MONITORING</p><h1>See risk<br><em>before impact.</em></h1>
+      <p class="lede">Upload traffic or choose a prepared trajectory to inspect malicious risk, attack stage, and supporting evidence.</p></div>
+    </section>
+
+    <section id="signals" class="panel input-panel">
+      <div class="section-title"><span>01</span><div><p>INPUT & FEATURE EXTRACTION</p><h2>Choose prepared evidence or bring your own</h2></div></div>
+      <div class="input-grid">
+        <div class="source-card">
+          <h3>Prepared trajectory library</h3><p>Switch instantly across all 11 audited trajectories.</p>
+          <form method="get" class="stack">
+            <select name="sample" aria-label="Prepared trajectory">
+              {% for sample in samples %}<option value="{{ sample }}" {% if sample == selected_sample %}selected{% endif %}>{{ sample }}</option>{% endfor %}
+            </select>
+            <button class="button secondary" type="submit">Load trajectory</button>
+          </form>
+          <div class="quick-row">
+            {% for sample in featured_samples %}<a class="chip" href="/?sample={{ sample|urlencode }}">{{ "DDoS quick demo" if "DDoS" in sample else "Infiltration quick demo" }}</a>{% endfor %}
+          </div>
+        </div>
+        <div class="source-card upload-card">
+          <h3>Ingest PCAP or CSV</h3><p>Run the canonical adapter and 51-feature extraction pipeline.</p>
+          <form method="post" action="/upload" enctype="multipart/form-data" class="stack upload-form">
+            <input type="file" name="traffic_file" accept=".csv,.pcap,.pcapng" required>
+            <select name="dataset_id"><option value="cic_ids2018">CIC-IDS2018 CSV</option><option value="ctu13">CTU-13 CSV</option><option value="dapt2020">DAPT2020 CSV</option><option value="unsw_nb15">UNSW-NB15 CSV</option></select>
+            <button class="button secondary" type="submit">Extract & analyse</button><span class="upload-status" aria-live="polite" hidden>Extracting features and building windows…</span>
+          </form>
+        </div>
+      </div>
+      <div class="active-source"><div><span>ACTIVE EVIDENCE</span><strong>{{ loaded.name }}</strong><small>{{ loaded.source_kind }} · {{ loaded.origin.isoformat() }} → {{ loaded.end.isoformat() }}</small></div><a class="button primary" href="/?sample={{ selected_sample|urlencode }}&analyze=1">Run analysis <b>→</b></a></div>
+      <div class="metric-grid four"><article><span>WINDOWS</span><strong>{{ "{:,}".format(window_count) }}</strong></article><article><span>FEATURES</span><strong>{{ feature_count }}</strong></article><article><span>FLOW POPULATED</span><strong>{{ flow_available }}</strong></article><article><span>PACKET-DERIVED</span><strong>{{ packet_available }}</strong></article></div>
+      <details><summary>Inspect extracted feature matrix and availability</summary><div class="table-scroll"><table><thead><tr>{% for c in matrix_columns %}<th>{{ c }}</th>{% endfor %}</tr></thead><tbody>{% for row in matrix_rows %}<tr>{% for c in matrix_columns %}<td>{{ "%.4g"|format(row[c]) if row[c] is number else row[c] }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div><div class="availability-list">{% for row in availability_rows %}<span class="{{ 'on' if row.populated else 'off' }}">{{ row.feature }}</span>{% endfor %}</div></details>
+    </section>
+
+    <section class="model-strip"><div><span>02 · MODEL</span><h2>Forecast engine</h2><p>Six history windows are used to forecast the next six windows.</p></div><div class="model-flow"><b>Traffic</b><i>→</i><b>Forecast</b><i>→</i><b>Risk + stage</b></div></section>
+
+    {% if analysis %}
+    <section id="forecast" class="panel">
+      <div class="section-title"><span>03</span><div><p>INFILTRATION PREDICTION ENGINE</p><h2>Full-timeline risk forecast</h2></div><div class="threshold">OPERATING THRESHOLD <b>0.20</b></div></div>
+      <canvas id="timeline" height="300" aria-label="Malicious risk timeline"></canvas>
+      <div class="peak-grid"><article class="peak-card"><span>PEAK WINDOW</span><strong>#{{ analysis.peak_window }}</strong></article><article class="peak-card danger"><span>MALICIOUS RISK</span><strong>{{ "%.4f"|format(analysis.peak_score) }}</strong></article><article class="peak-card"><span>ATTACK STAGE</span><strong>{{ analysis.peak_stage }}</strong></article></div>
+      <h3>K-step trajectory from the peak context</h3><div class="horizon">{% for point in analysis.horizon %}<div><span>K+{{ point.forecast_step }}</span><i style="--risk:{{ point.risk_score }}"></i><b>{{ "%.3f"|format(point.risk_score) }}</b></div>{% endfor %}</div>
+    </section>
+
+    <section class="panel"><div class="section-title"><span>04</span><div><p>FLAGGED NETWORK STATES</p><h2>{{ analysis.flagged_count }} windows crossed the threshold</h2></div></div>
+      <div class="table-scroll flagged-table"><table><thead><tr><th>Window</th><th>Risk</th><th>Predicted stage</th><th>Protocol</th><th>Dst ports</th><th>Mean duration</th><th>Flows</th></tr></thead><tbody>{% for row in analysis.flagged %}<tr><td>#{{ row.window_index }}</td><td><b>{{ "%.4f"|format(row.risk_score) }}</b></td><td><span class="stage stage-{{ row.predicted_stage|lower }}">{{ row.predicted_stage }}</span></td><td>{{ row.protocol }}</td><td>{{ "%.0f"|format(row.unique_dst_ports) }}</td><td>{{ "%.4f"|format(row.mean_duration) }}</td><td>{{ "%.0f"|format(row.total_flows) }}</td></tr>{% endfor %}</tbody></table></div>{% if analysis.flagged_count > 250 %}<p class="note">Showing the first 250 flagged windows of {{ analysis.flagged_count }}.</p>{% endif %}
+    </section>
+
+    <section id="explain" class="panel"><div class="section-title"><span>05</span><div><p>EXPLAINABILITY</p><h2>Why the model raised this alert</h2></div></div>
+      <div class="attribution-list">{% for row in analysis.attribution %}<div class="attr-row"><span>{{ row.feature }}</span><div class="attr-track"><i class="{{ 'positive' if row.attribution >= 0 else 'negative' }}" style="--size:{{ [row.absolute_attribution * 8, 1]|min }}"></i></div><b>{{ "%+.4f"|format(row.attribution) }}</b><small>raw {{ "%.4g"|format(row.raw_value) }}</small></div>{% endfor %}</div>
+      <p class="method">Feature attribution via integrated gradients, computed in the model's normalized input space and reported against real feature values.</p>
+    </section>
+
+    <section id="benchmark" class="panel"><div class="section-title"><span>06</span><div><p>AUDITED BENCHMARK</p><h2>World model vs logistic regression</h2></div></div>
+      {% if analysis.benchmark_fixed %}<div class="benchmark-grid"><div><h3>Fixed threshold 0.5</h3>{{ metrics_table(analysis.benchmark_fixed) if false else '' }}<table><thead><tr><th>Model</th><th>Precision</th><th>Recall</th><th>F1</th><th>FPR</th></tr></thead><tbody>{% for row in analysis.benchmark_fixed %}<tr><td>{{ row.model }}</td><td>{{ "%.4f"|format(row.precision) }}</td><td>{{ "%.4f"|format(row.recall) }}</td><td><b>{{ "%.4f"|format(row.f1) }}</b></td><td>{{ "%.4f"|format(row.fpr) }}</td></tr>{% endfor %}</tbody></table></div><div><h3>Best observed threshold</h3><table><thead><tr><th>Model</th><th>Threshold</th><th>Precision</th><th>F1</th><th>FPR</th></tr></thead><tbody>{% for row in analysis.benchmark_best %}<tr><td>{{ row.model }}</td><td>{{ "%.1f"|format(row.threshold) }}</td><td>{{ "%.4f"|format(row.precision) }}</td><td><b>{{ "%.4f"|format(row.f1) }}</b></td><td>{{ "%.4f"|format(row.fpr) }}</td></tr>{% endfor %}</tbody></table></div></div>{% else %}<div class="benchmark-empty">Live model inference is available for this uploaded file. Ground-truth benchmark metrics are shown only when labels are available for an audited validation trajectory.</div>{% endif %}
+      <blockquote>The probabilistic LSTM provides better precision/FPR tradeoffs and higher best observed F1 across all four held-out attack families, though its raw probabilities are not fully calibrated across datasets at a fixed threshold.</blockquote>
+    </section>
+    {% endif %}
+
+    <section class="panel summary"><div class="section-title"><span>07</span><div><p>MODEL & DATA SUMMARY</p><h2>Built on real, trajectory-level evidence</h2></div></div><div class="summary-grid"><article><b>11</b><span>real trajectories</span></article><article><b>7</b><span>attack families</span></article><article><b>7 / 4</b><span>train / validation</span></article><article><b>51</b><span>network-state features</span></article></div><p>CIC-IDS2018 + CTU-13 · whole-trajectory split · risk and attack-stage forecasting</p></section>
+  </main>
+  <footer><span>RakshaDrishti · SIH 2026</span><span>Network risk analysis</span></footer>
+  <script>document.querySelectorAll('.upload-form').forEach(function(form){form.addEventListener('submit',function(){var status=form.querySelector('.upload-status');var button=form.querySelector('button');if(status){status.hidden=false;}if(button){button.disabled=true;button.textContent='Processing…';}});});</script>
+  {% if analysis %}<script>window.CYBERWORLD_TIMELINE={{ analysis.timeline|tojson }};window.CYBERWORLD_THRESHOLD=0.2;</script><script src="{{ url_for('static', filename='app.js') }}"></script>{% endif %}
+</body></html>

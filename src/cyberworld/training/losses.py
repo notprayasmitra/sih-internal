@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import torch
 from torch import Tensor
 from torch.nn import functional as F
+from torch.utils.data import Dataset
 
 from cyberworld.models.world_model import RolloutOutput
 
@@ -19,6 +20,26 @@ def masked_mean(values: Tensor, mask: Tensor) -> Tensor:
 def gaussian_nll(mean: Tensor, log_variance: Tensor, target: Tensor, mask: Tensor) -> Tensor:
     elementwise = 0.5 * (log_variance + (target - mean).square() * torch.exp(-log_variance))
     return masked_mean(elementwise, mask)
+
+
+def inverse_frequency_stage_weights(
+    dataset: Dataset[dict[str, Tensor]], num_stages: int
+) -> tuple[Tensor, Tensor]:
+    """Return balanced train-only stage weights and their underlying counts.
+
+    Unobserved classes receive zero weight: inverse frequency cannot create
+    supervision for a class absent from the training corpus.
+    """
+    counts = torch.zeros(num_stages, dtype=torch.long)
+    for sample in dataset:
+        stages = sample["future_stages"].flatten()
+        valid = sample["future_label_valid"].flatten() > 0
+        counts += torch.bincount(stages[valid], minlength=num_stages)
+    observed = counts > 0
+    weights = torch.zeros(num_stages, dtype=torch.float32)
+    if observed.any():
+        weights[observed] = counts.sum().float() / (observed.sum().float() * counts[observed])
+    return weights, counts
 
 
 @dataclass(frozen=True)
@@ -79,6 +100,7 @@ def compute_loss(
     prediction: RolloutOutput,
     batch: dict[str, Tensor],
     weights: LossWeights,
+    stage_class_weights: Tensor | None = None,
 ) -> LossOutput:
     state = gaussian_nll(
         prediction.state_mean,
@@ -90,20 +112,24 @@ def compute_loss(
     stage_raw = F.cross_entropy(
         prediction.stage_logits.flatten(0, 1),
         batch["future_stages"].flatten(),
+        weight=stage_class_weights,
         reduction="none",
     ).view_as(valid)
     stage = masked_mean(stage_raw, valid)
+    malicious_target = batch.get("future_risk_malicious", batch["future_malicious"])
+    malicious_mask = batch.get("future_risk_valid", valid)
     malicious = masked_mean(
         F.binary_cross_entropy_with_logits(
-            prediction.malicious_logits, batch["future_malicious"], reduction="none"
+            prediction.malicious_logits, malicious_target, reduction="none"
         ),
-        valid,
+        malicious_mask,
     )
+    compromise_target = batch.get("future_risk_compromise", batch["future_compromise"])
     compromise = masked_mean(
         F.binary_cross_entropy_with_logits(
-            prediction.compromise_logits, batch["future_compromise"], reduction="none"
+            prediction.compromise_logits, compromise_target, reduction="none"
         ),
-        valid,
+        malicious_mask,
     )
     jepa = state.new_zeros(())
     if prediction.predicted_latents is not None and prediction.target_latents is not None:

@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>How it works · RakshaDrishti</title><link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}"></head>
+<body>
+  <header class="topbar"><a class="brand" href="/">RakshaDrishti</a><nav><a href="/">Dashboard</a><a href="/how-it-works">How it works</a></nav></header>
+  <main class="how-page">
+    <section class="hero how-hero"><div><p class="eyebrow">SYSTEM APPROACH</p><h1>How it works</h1><p class="lede">RakshaDrishti turns network-flow evidence into a short, explainable forecast of malicious risk and attack stage.</p></div></section>
+    <section class="process-figure"><div class="process-node"><span class="process-icon">⇩</span><b>Input</b><small>CSV · PCAP · library</small></div><i>→</i><div class="process-node"><span class="process-icon">◫</span><b>Windows</b><small>10-second flow groups</small></div><i>→</i><div class="process-node"><span class="process-icon">✦</span><b>Forecast</b><small>six-step LSTM</small></div><i>→</i><div class="process-node highlight"><span class="process-icon">✓</span><b>Risk view</b><small>risk · stage · evidence</small></div></section>
+    <section class="panel how-grid">
+      <article><span class="step-icon">⇩</span><span class="step">01</span><h2>Ingest</h2><p>Choose a prepared CIC-IDS2018 or CTU-13 trajectory, or upload CSV/PCAP evidence.</p></article>
+      <article><span class="step-icon">◫</span><span class="step">02</span><h2>Prepare</h2><p>Validate timestamps, map labels, and aggregate flows into 10-second windows.</p></article>
+      <article><span class="step-icon">#</span><span class="step">03</span><h2>Build features</h2><p>Construct a 51-feature network state with availability masks for missing measurements.</p></article>
+      <article><span class="step-icon">↗</span><span class="step">04</span><h2>Forecast</h2><p>Use six history windows to forecast the next six windows autoregressively.</p></article>
+      <article><span class="step-icon">!</span><span class="step">05</span><h2>Score risk</h2><p>Estimate malicious risk, compromise risk, future state, and attack stage.</p></article>
+      <article><span class="step-icon">✓</span><span class="step">06</span><h2>Explain</h2><p>Review flagged windows, peak risk, stage, forecast context, and evidence.</p></article>
+    </section>
+    <section class="panel how-notes"><h2>Evaluation approach</h2><p>The model was evaluated using complete held-out trajectories rather than random flow rows. The final split uses seven trajectories for training and four for validation across DDoS, infiltration, Neris, and Rbot families. Alternative JEPA, Transformer, and TCN architectures were tested on the same split; the LSTM remains deployed as the most consistent performer.</p><a class="button primary" href="/">Open dashboard</a></section>
+  </main>
+  <footer><span>RakshaDrishti · SIH 2026</span><span>Network risk analysis</span></footer>
+</body>
+</html>

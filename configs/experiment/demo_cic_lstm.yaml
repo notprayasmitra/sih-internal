@@ -1,0 +1,26 @@
+extends: smoke.yaml
+
+experiment:
+  name: world_model_demo_all_sources_lstm
+  seed: 42
+
+paths:
+  trajectory_dir: data/processed/trajectories
+
+data:
+  pin_memory: false
+  synthetic_if_missing: false
+
+model:
+  architecture: probabilistic_lstm
+  hidden_dim: 32
+  projection_dim: 32
+  latent_dim: 16
+  num_layers: 1
+  dropout: 0.0
+
+training:
+  epochs: 20
+  early_stopping_patience: 5
+  mixed_precision: false
+  validation_fraction: 0.2

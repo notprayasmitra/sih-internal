@@ -9,7 +9,7 @@ paths:
   checkpoint_root: ${CYBERWORLD_CHECKPOINT_ROOT:checkpoints}
   run_root: ${CYBERWORLD_RUN_ROOT:runs}
 data:
-  feature_dim: 48
+  feature_dim: 51
   num_stages: 9
   history_windows: 6
   forecast_windows: 6

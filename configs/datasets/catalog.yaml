@@ -2,13 +2,22 @@ datasets:
   - dataset_id: cic_ids2018
     enabled: true
     input_globs:
-      - data/raw/cic_ids2018/*_TrafficForML_CICFlowMeter.csv
+      - data/raw/cic_ids2018/Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/raw/cic_ids2018/Friday-16-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/raw/cic_ids2018/Thuesday-20-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/raw/cic_ids2018/Wednesday-21-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/raw/cic_ids2018/Thursday-22-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/raw/cic_ids2018/Wednesday-28-02-2018_TrafficForML_CICFlowMeter.csv
+      - data/raw/cic_ids2018/Thursday-01-03-2018_TrafficForML_CICFlowMeter.csv
     scenario_strategy: filename
 
   - dataset_id: ctu13
     enabled: true
     input_globs:
-      - data/raw/ctu13/**/capture*.binetflow
+      - data/raw/ctu13/scenario_01/capture20110810.binetflow
+      - data/raw/ctu13/scenario_09/capture20110817.binetflow
+      - data/raw/ctu13/scenario_10/capture20110818.binetflow
+      - data/raw/ctu13/scenario_11/capture20110818-2.binetflow
     scenario_strategy: parent_directory
 
   - dataset_id: dapt2020

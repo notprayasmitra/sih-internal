@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import warnings
 from collections.abc import Callable
 from pathlib import Path
 from typing import cast
@@ -78,8 +79,20 @@ COMMON_ALIASES: dict[str, tuple[str, ...]] = {
     "packet_length_std": ("pktlenstd", "packetlengthstd"),
     "packet_length_min": ("pktlenmin", "minpacketlength", "packetlengthmin"),
     "packet_length_max": ("pktlenmax", "maxpacketlength", "packetlengthmax"),
-    "tcp_window_fwd": ("fwdinitwinbytes", "initfwdwinbytes", "swin"),
-    "tcp_window_bwd": ("bwdinitwinbytes", "initbwdwinbytes", "dwin"),
+    "tcp_window_fwd": (
+        "fwdinitwinbytes",
+        "fwdinitwinbyts",
+        "initfwdwinbytes",
+        "initfwdwinbyts",
+        "swin",
+    ),
+    "tcp_window_bwd": (
+        "bwdinitwinbytes",
+        "bwdinitwinbyts",
+        "initbwdwinbytes",
+        "initbwdwinbyts",
+        "dwin",
+    ),
     "ttl_fwd": ("sttl",),
     "ttl_bwd": ("dttl",),
     "source_label": ("label", "attackcat"),
@@ -104,12 +117,15 @@ def _map_dapt(label: str, stage: str) -> AttackStage:
 
 def _map_cic(label: str, stage: str) -> AttackStage:
     value = label.strip().lower()
+    normalized = re.sub(r"[^a-z0-9]+", "", value)
     if value in {"benign", "normal"}:
         return AttackStage.NORMAL
     if "portscan" in value or "port scan" in value:
         return AttackStage.RECONNAISSANCE
     if "ddos" in value or value.startswith("dos") or "dos-" in value:
         return AttackStage.IMPACT
+    if normalized in {"ftpbruteforce", "sshbruteforce"} or "sqlinjection" in normalized:
+        return AttackStage.INITIAL_ACCESS
     if value:
         return AttackStage.OTHER_MALICIOUS
     return AttackStage.UNKNOWN
@@ -117,13 +133,27 @@ def _map_cic(label: str, stage: str) -> AttackStage:
 
 def _map_ctu(label: str, stage: str) -> AttackStage:
     value = label.strip().lower()
-    if "from-normal" in value or value == "normal":
+    normalized = re.sub(r"[^a-z0-9]+", "", value)
+    if "fromnormal" in normalized or normalized == "normal":
         return AttackStage.NORMAL
-    if "background" in value or value.startswith("to-"):
-        return AttackStage.UNKNOWN
-    if "cc" in value or "c&c" in value or "command" in value:
+    if (
+        normalized in {"cc", "ccchannel", "ccchannels", "irc", "p2p"}
+        or "commandandcontrol" in normalized
+        or "commandcontrol" in normalized
+        or re.search(r"(?:^|[^a-z0-9])cc\d+(?:[^a-z0-9]|$)", value)
+        or re.search(r"(?:^|[^a-z0-9])irc(?:[^a-z0-9]|$)", value)
+    ):
         return AttackStage.COMMAND_AND_CONTROL
-    if "botnet" in value:
+    if "portscan" in normalized or "udpscan" in normalized:
+        return AttackStage.RECONNAISSANCE
+    if "ddos" in normalized or normalized.startswith("dos"):
+        return AttackStage.IMPACT
+    if "background" in normalized or normalized.startswith("to"):
+        return AttackStage.UNKNOWN
+    if any(
+        token in normalized
+        for token in ("spam", "clickfraud", "fastflux", "frombotnet")
+    ) or normalized == "botnet":
         return AttackStage.OTHER_MALICIOUS
     return AttackStage.UNKNOWN
 
@@ -165,6 +195,30 @@ def _parse_timestamp(series: pd.Series) -> pd.Series:
         pd.Series,
         pd.to_datetime(series, utc=True, errors="coerce", dayfirst=True, format="mixed"),
     )
+
+
+def _filter_cic_capture_date(frame: pd.DataFrame, path: Path) -> pd.DataFrame:
+    """Reject timestamp corruption that would create multi-year empty trajectories."""
+    match = re.search(r"(\d{2})-(\d{2})-(\d{4})", path.name)
+    if match is None:
+        return frame
+    day, month, year = (int(value) for value in match.groups())
+    expected = pd.Timestamp(year=year, month=month, day=day, tz="UTC").date()
+    matches_date = frame["timestamp"].dt.date == expected
+    rejected = int((~matches_date).sum())
+    if rejected == 0:
+        return frame
+    rejection_fraction = rejected / len(frame)
+    if rejection_fraction > 0.01:
+        raise ValueError(
+            f"{path}: {rejected}/{len(frame)} CIC rows fall outside capture date {expected}"
+        )
+    warnings.warn(
+        f"{path}: dropping {rejected} rows outside CIC capture date {expected}",
+        RuntimeWarning,
+        stacklevel=2,
+    )
+    return frame.loc[matches_date].copy()
 
 
 def read_flow_csv(path: Path, dataset_id: str, *, chunksize: int | None = None) -> pd.DataFrame:
@@ -226,6 +280,10 @@ def read_flow_csv(path: Path, dataset_id: str, *, chunksize: int | None = None) 
         if column not in non_numeric:
             output[column] = pd.to_numeric(output[column], errors="coerce")
 
+    # CICFlowMeter uses -1 for an unavailable TCP window, not a negative window.
+    for column in ("tcp_window_fwd", "tcp_window_bwd"):
+        output[column] = output[column].mask(output[column] < 0)
+
     output["source_label"] = output["source_label"].fillna("").astype(str)
     output["source_stage"] = output["source_stage"].fillna("").astype(str)
     mapper = MAPPERS[dataset_id]
@@ -237,4 +295,6 @@ def read_flow_csv(path: Path, dataset_id: str, *, chunksize: int | None = None) 
         np.float32
     )
     output = output.dropna(subset=["timestamp"]).sort_values("timestamp", kind="stable")
+    if dataset_id == "cic_ids2018":
+        output = _filter_cic_capture_date(output, path)
     return output.reset_index(drop=True)

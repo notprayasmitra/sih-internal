@@ -4,7 +4,7 @@ experiment:
   seed: 7
   deterministic: true
 data:
-  feature_dim: 16
+  feature_dim: 51
   history_windows: 4
   forecast_windows: 3
   batch_size: 16

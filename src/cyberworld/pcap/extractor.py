@@ -84,6 +84,10 @@ class FlowAccumulator:
         iats = np.diff(ordered_times) if len(ordered_times) > 1 else np.asarray([])
         pkt_mean, pkt_std, pkt_min, pkt_max = _stats(self.packet_lengths)
         payload_mean, payload_std, payload_min, payload_max = _stats(self.payload_sizes)
+        _, tcp_window_var_fwd, _, _ = _stats(self.windows_fwd)
+        _, tcp_window_var_bwd, _, _ = _stats(self.windows_bwd)
+        _, ttl_var, _, _ = _stats(self.ttl_fwd + self.ttl_bwd)
+        ttl_values = self.ttl_fwd + self.ttl_bwd
         total_packets = self.fwd_packets + self.bwd_packets
         total_bytes = self.fwd_bytes + self.bwd_bytes
         return {
@@ -115,8 +119,20 @@ class FlowAccumulator:
             "packet_length_max": pkt_max,
             "tcp_window_fwd": np.mean(self.windows_fwd) if self.windows_fwd else np.nan,
             "tcp_window_bwd": np.mean(self.windows_bwd) if self.windows_bwd else np.nan,
+            "tcp_window_var_fwd": tcp_window_var_fwd**2 if self.windows_fwd else np.nan,
+            "tcp_window_var_bwd": tcp_window_var_bwd**2 if self.windows_bwd else np.nan,
+            "tcp_window_count_fwd": len(self.windows_fwd),
+            "tcp_window_count_bwd": len(self.windows_bwd),
+            "tcp_window_sum_fwd": sum(self.windows_fwd),
+            "tcp_window_sum_bwd": sum(self.windows_bwd),
+            "tcp_window_sumsq_fwd": sum(value * value for value in self.windows_fwd),
+            "tcp_window_sumsq_bwd": sum(value * value for value in self.windows_bwd),
             "ttl_fwd": np.mean(self.ttl_fwd) if self.ttl_fwd else np.nan,
             "ttl_bwd": np.mean(self.ttl_bwd) if self.ttl_bwd else np.nan,
+            "ttl_variance": ttl_var**2 if self.ttl_fwd or self.ttl_bwd else np.nan,
+            "ttl_count": len(ttl_values),
+            "ttl_sum": sum(ttl_values),
+            "ttl_sumsq": sum(value * value for value in ttl_values),
             "retransmission_count": self.retransmission_count,
             "ip_fragment_count": self.fragment_count,
             "payload_size_mean": payload_mean,

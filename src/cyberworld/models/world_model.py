@@ -1,4 +1,4 @@
-"""Probabilistic recurrent network-state world model."""
+"""Probabilistic temporal world-model architectures."""
 
 from __future__ import annotations
 
@@ -7,6 +7,7 @@ from typing import cast
 
 import torch
 from torch import Tensor, nn
+from torch.nn import functional as F
 
 
 @dataclass(frozen=True)
@@ -221,4 +222,200 @@ class TemporalJEPAWorldModel(WorldModel):
             compromise_logits=torch.stack(compromise, dim=1),
             predicted_latents=torch.stack(predicted_latents, dim=1),
             target_latents=torch.stack(target_latents, dim=1) if target_latents else None,
+        )
+
+
+class TemporalTransformerWorldModel(WorldModel):
+    """Autoregressive world model with a short-history Transformer backbone."""
+
+    def __init__(
+        self,
+        *,
+        max_sequence_length: int = 64,
+        attention_heads: int = 4,
+        **kwargs: int | float,
+    ) -> None:
+        super().__init__(**kwargs)  # type: ignore[arg-type]
+        hidden_dim = self.dynamics.hidden_size
+        if hidden_dim % attention_heads:
+            raise ValueError("hidden_dim must be divisible by attention_heads")
+        self.dynamics = nn.TransformerEncoder(
+            nn.TransformerEncoderLayer(
+                d_model=hidden_dim,
+                nhead=attention_heads,
+                dim_feedforward=2 * hidden_dim,
+                dropout=float(kwargs.get("dropout", 0.1)),
+                activation="gelu",
+                batch_first=True,
+                norm_first=True,
+            ),
+            num_layers=int(kwargs.get("num_layers", 2)),
+        )
+        self.temporal_projection = (
+            nn.Identity()
+            if self.projection_dim == hidden_dim
+            else nn.Linear(self.projection_dim, hidden_dim)
+        )
+        self.position_embedding = nn.Parameter(torch.zeros(1, max_sequence_length, hidden_dim))
+        nn.init.normal_(self.position_embedding, std=0.02)
+        self.attention_heads = attention_heads
+
+    def _transform(self, tokens: list[Tensor]) -> Tensor:
+        sequence = torch.cat(tokens, dim=1)
+        if sequence.shape[1] > self.position_embedding.shape[1]:
+            raise ValueError("rollout sequence exceeds configured Transformer position capacity")
+        sequence = sequence + self.position_embedding[:, : sequence.shape[1]]
+        return self.dynamics(sequence)[:, -1]
+
+    def rollout(
+        self,
+        history: Tensor,
+        history_availability: Tensor,
+        steps: int,
+        *,
+        teacher_states: Tensor | None = None,
+        teacher_availability: Tensor | None = None,
+        teacher_forcing_ratio: float = 0.0,
+    ) -> RolloutOutput:
+        if history.ndim != 3 or history.shape[-1] != self.feature_dim:
+            raise ValueError("history must have shape [batch, time, feature_dim]")
+        if history.shape[1] + steps > self.position_embedding.shape[1]:
+            raise ValueError("history plus rollout exceeds Transformer position capacity")
+        if steps <= 0:
+            raise ValueError("steps must be positive")
+        if not 0.0 <= teacher_forcing_ratio <= 1.0:
+            raise ValueError("teacher_forcing_ratio must be in [0, 1]")
+        if teacher_states is not None and teacher_states.shape[1] < steps:
+            raise ValueError("teacher_states has fewer time steps than requested rollout")
+        tokens = [self.temporal_projection(self._encode_state(history, history_availability))]
+        means: list[Tensor] = []
+        variances: list[Tensor] = []
+        stages: list[Tensor] = []
+        malicious: list[Tensor] = []
+        compromise: list[Tensor] = []
+        for step in range(steps):
+            hidden = self._transform(tokens)
+            mean, log_variance, stage, mal, comp = self._decode(hidden)
+            means.append(mean)
+            variances.append(log_variance)
+            stages.append(stage)
+            malicious.append(mal)
+            compromise.append(comp)
+            next_state = mean
+            next_availability = torch.ones_like(mean)
+            if teacher_states is not None and teacher_forcing_ratio > 0.0:
+                selector = torch.rand(mean.shape[0], 1, device=mean.device) < teacher_forcing_ratio
+                next_state = torch.where(selector, teacher_states[:, step], mean)
+                if teacher_availability is not None:
+                    next_availability = torch.where(
+                        selector, teacher_availability[:, step], next_availability
+                    )
+            next_token = self.temporal_projection(
+                self._encode_state(next_state, next_availability)
+            ).unsqueeze(1)
+            tokens.append(next_token)
+        return RolloutOutput(
+            state_mean=torch.stack(means, dim=1),
+            state_log_variance=torch.stack(variances, dim=1),
+            stage_logits=torch.stack(stages, dim=1),
+            malicious_logits=torch.stack(malicious, dim=1),
+            compromise_logits=torch.stack(compromise, dim=1),
+        )
+
+
+class _CausalResidualBlock(nn.Module):
+    def __init__(self, channels: int, dilation: int, dropout: float) -> None:
+        super().__init__()
+        self.left_padding = 2 * dilation
+        self.conv1 = nn.Conv1d(channels, channels, kernel_size=3, dilation=dilation)
+        self.conv2 = nn.Conv1d(channels, channels, kernel_size=3, dilation=dilation)
+        self.norm1 = nn.GroupNorm(1, channels)
+        self.norm2 = nn.GroupNorm(1, channels)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, sequence: Tensor) -> Tensor:
+        residual = sequence
+        value = self.conv1(F.pad(sequence, (self.left_padding, 0)))
+        value = self.dropout(F.gelu(self.norm1(value)))
+        value = self.conv2(F.pad(value, (self.left_padding, 0)))
+        value = self.dropout(F.gelu(self.norm2(value)))
+        return residual + value
+
+
+class TemporalConvolutionalWorldModel(WorldModel):
+    """Autoregressive world model with causal dilated residual convolutions."""
+
+    def __init__(self, **kwargs: int | float) -> None:
+        super().__init__(**kwargs)  # type: ignore[arg-type]
+        hidden_dim = self.dynamics.hidden_size
+        self.temporal_projection = (
+            nn.Identity()
+            if self.projection_dim == hidden_dim
+            else nn.Linear(self.projection_dim, hidden_dim)
+        )
+        num_layers = int(kwargs.get("num_layers", 2))
+        dropout = float(kwargs.get("dropout", 0.1))
+        self.dynamics = nn.ModuleList(
+            _CausalResidualBlock(hidden_dim, 2**layer, dropout)
+            for layer in range(num_layers)
+        )
+
+    def _transform(self, sequence: Tensor) -> Tensor:
+        value = sequence.transpose(1, 2)
+        for block in self.dynamics:
+            value = block(value)
+        return value.transpose(1, 2)[:, -1]
+
+    def rollout(
+        self,
+        history: Tensor,
+        history_availability: Tensor,
+        steps: int,
+        *,
+        teacher_states: Tensor | None = None,
+        teacher_availability: Tensor | None = None,
+        teacher_forcing_ratio: float = 0.0,
+    ) -> RolloutOutput:
+        if history.ndim != 3 or history.shape[-1] != self.feature_dim:
+            raise ValueError("history must have shape [batch, time, feature_dim]")
+        if steps <= 0:
+            raise ValueError("steps must be positive")
+        if not 0.0 <= teacher_forcing_ratio <= 1.0:
+            raise ValueError("teacher_forcing_ratio must be in [0, 1]")
+        if teacher_states is not None and teacher_states.shape[1] < steps:
+            raise ValueError("teacher_states has fewer time steps than requested rollout")
+        tokens = [self.temporal_projection(self._encode_state(history, history_availability))]
+        means: list[Tensor] = []
+        variances: list[Tensor] = []
+        stages: list[Tensor] = []
+        malicious: list[Tensor] = []
+        compromise: list[Tensor] = []
+        for step in range(steps):
+            hidden = self._transform(torch.cat(tokens, dim=1))
+            mean, log_variance, stage, mal, comp = self._decode(hidden)
+            means.append(mean)
+            variances.append(log_variance)
+            stages.append(stage)
+            malicious.append(mal)
+            compromise.append(comp)
+            next_state = mean
+            next_availability = torch.ones_like(mean)
+            if teacher_states is not None and teacher_forcing_ratio > 0.0:
+                selector = torch.rand(mean.shape[0], 1, device=mean.device) < teacher_forcing_ratio
+                next_state = torch.where(selector, teacher_states[:, step], mean)
+                if teacher_availability is not None:
+                    next_availability = torch.where(
+                        selector, teacher_availability[:, step], next_availability
+                    )
+            tokens.append(
+                self.temporal_projection(
+                    self._encode_state(next_state, next_availability)
+                ).unsqueeze(1)
+            )
+        return RolloutOutput(
+            state_mean=torch.stack(means, dim=1),
+            state_log_variance=torch.stack(variances, dim=1),
+            stage_logits=torch.stack(stages, dim=1),
+            malicious_logits=torch.stack(malicious, dim=1),
+            compromise_logits=torch.stack(compromise, dim=1),
         )

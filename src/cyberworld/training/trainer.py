@@ -19,7 +19,15 @@ from cyberworld.training.metrics import MetricAccumulator
 
 
 class Trainer:
-    def __init__(self, model: WorldModel, config: AppConfig, device: DeviceInfo) -> None:
+    def __init__(
+        self,
+        model: WorldModel,
+        config: AppConfig,
+        device: DeviceInfo,
+        *,
+        stage_class_weights: Tensor | None = None,
+        stage_class_counts: Tensor | None = None,
+    ) -> None:
         self.model = model.to(device.device)
         self.config = config
         self.device = device
@@ -30,6 +38,10 @@ class Trainer:
         )
         self.amp_enabled = config.training.mixed_precision and device.accelerator == "cuda"
         self.scaler = torch.amp.GradScaler("cuda", enabled=self.amp_enabled)
+        self.stage_class_weights = (
+            stage_class_weights.to(device.device) if stage_class_weights is not None else None
+        )
+        self.stage_class_counts = stage_class_counts
         self.weights = LossWeights(
             state=config.training.lambda_state,
             stage=config.training.lambda_stage,
@@ -82,7 +94,12 @@ class Trainer:
                         self.config.training.teacher_forcing_ratio if training else 0.0
                     ),
                 )
-                losses = compute_loss(prediction, batch, self.weights)
+                losses = compute_loss(
+                    prediction,
+                    batch,
+                    self.weights,
+                    stage_class_weights=self.stage_class_weights,
+                )
                 scaled_loss = losses.total / accumulation
 
             if training:
@@ -94,6 +111,11 @@ class Trainer:
 
             accumulator.update(
                 loss=losses.total,
+                state_loss=losses.state,
+                stage_loss=losses.stage,
+                malicious_loss=losses.malicious,
+                compromise_loss=losses.compromise,
+                jepa_loss=losses.jepa,
                 state_mean=prediction.state_mean,
                 state_target=batch["future_states"],
                 state_mask=batch["future_availability"],
@@ -139,6 +161,12 @@ class Trainer:
                 "optimizer_state": self.optimizer.state_dict(),
                 "config": self.config.model_dump(mode="json"),
                 "validation": validation_metrics,
+                "stage_class_counts": self.stage_class_counts,
+                "stage_class_weights": (
+                    self.stage_class_weights.detach().cpu()
+                    if self.stage_class_weights is not None
+                    else None
+                ),
             }
             if epoch % self.config.logging.save_every_epochs == 0:
                 save_checkpoint_atomic(payload, self.checkpoint_dir / "last.pt")

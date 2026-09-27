@@ -15,8 +15,8 @@ Usage: ./scripts/download_datasets.sh [--starter] [--dataset NAME] [--full-pcap]
 Datasets: all, cic_ids2018, ctu13, dapt2020, unsw_nb15, cicapt_iiot2024
 
 The starter mode downloads official, manageable artifacts:
-  - two CSE-CIC-IDS2018 flow CSVs (~317 MB total)
-  - CTU-13 scenario 1 bidirectional flows (~369 MB)
+  - seven CSE-CIC-IDS2018 flow CSVs
+  - CTU-13 scenarios 1, 9, 10, and 11 bidirectional flows
   - CTU-13 scenario 1 botnet PCAP (~56 MB)
 
 DAPT2020, UNSW-NB15, and CICAPT-IIoT2024 currently require a provider form,
@@ -95,12 +95,20 @@ want() { [[ "$DATASET" == "all" || "$DATASET" == "$1" ]]; }
 
 if want cic_ids2018; then
   CIC_BASE="https://cse-cic-ids2018.s3.ca-central-1.amazonaws.com"
-  CIC_KEY="Processed%20Traffic%20Data%20for%20ML%20Algorithms/Thursday-01-03-2018_TrafficForML_CICFlowMeter.csv"
-  download "$CIC_BASE/$CIC_KEY" \
-    "$DATA_ROOT/raw/cic_ids2018/Thursday-01-03-2018_TrafficForML_CICFlowMeter.csv"
-  CIC_KEY_2="Processed%20Traffic%20Data%20for%20ML%20Algorithms/Wednesday-28-02-2018_TrafficForML_CICFlowMeter.csv"
-  download "$CIC_BASE/$CIC_KEY_2" \
-    "$DATA_ROOT/raw/cic_ids2018/Wednesday-28-02-2018_TrafficForML_CICFlowMeter.csv"
+  CIC_PREFIX="Processed%20Traffic%20Data%20for%20ML%20Algorithms"
+  CIC_FILES=(
+    "Wednesday-14-02-2018_TrafficForML_CICFlowMeter.csv"
+    "Friday-16-02-2018_TrafficForML_CICFlowMeter.csv"
+    "Thuesday-20-02-2018_TrafficForML_CICFlowMeter.csv"
+    "Wednesday-21-02-2018_TrafficForML_CICFlowMeter.csv"
+    "Thursday-22-02-2018_TrafficForML_CICFlowMeter.csv"
+    "Wednesday-28-02-2018_TrafficForML_CICFlowMeter.csv"
+    "Thursday-01-03-2018_TrafficForML_CICFlowMeter.csv"
+  )
+  for filename in "${CIC_FILES[@]}"; do
+    download "$CIC_BASE/$CIC_PREFIX/$filename" \
+      "$DATA_ROOT/raw/cic_ids2018/$filename"
+  done
   if [[ "$FULL_PCAP" -eq 1 ]]; then
     echo "Full CIC PCAP is intentionally not guessed. Use the official AWS bucket command:" >&2
     echo "aws s3 sync --no-sign-request s3://cse-cic-ids2018/ '$DATA_ROOT/raw/cic_ids2018/full/'" >&2
@@ -108,11 +116,18 @@ if want cic_ids2018; then
 fi
 
 if want ctu13; then
-  CTU_BASE="https://mcfp.felk.cvut.cz/publicDatasets/CTU-Malware-Capture-Botnet-42"
+  CTU_ROOT="https://mcfp.felk.cvut.cz/publicDatasets"
+  CTU_BASE="$CTU_ROOT/CTU-Malware-Capture-Botnet-42"
   download "$CTU_BASE/detailed-bidirectional-flow-labels/capture20110810.binetflow" \
     "$DATA_ROOT/raw/ctu13/scenario_01/capture20110810.binetflow"
   download "$CTU_BASE/botnet-capture-20110810-neris.pcap" \
     "$DATA_ROOT/raw/ctu13/scenario_01/botnet-capture-20110810-neris.pcap"
+  download "$CTU_ROOT/CTU-Malware-Capture-Botnet-50/detailed-bidirectional-flow-labels/capture20110817.binetflow" \
+    "$DATA_ROOT/raw/ctu13/scenario_09/capture20110817.binetflow"
+  download "$CTU_ROOT/CTU-Malware-Capture-Botnet-51/detailed-bidirectional-flow-labels/capture20110818.binetflow" \
+    "$DATA_ROOT/raw/ctu13/scenario_10/capture20110818.binetflow"
+  download "$CTU_ROOT/CTU-Malware-Capture-Botnet-52/detailed-bidirectional-flow-labels/capture20110818-2.binetflow" \
+    "$DATA_ROOT/raw/ctu13/scenario_11/capture20110818-2.binetflow"
   if [[ "$FULL_PCAP" -eq 1 ]]; then
     download "$CTU_BASE/capture20110810.truncated.pcap.bz2" \
       "$DATA_ROOT/raw/ctu13/scenario_01/capture20110810.truncated.pcap.bz2"

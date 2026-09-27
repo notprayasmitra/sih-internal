@@ -1,0 +1,7 @@
+extends: full_combined.yaml
+
+experiment:
+  name: world_model_full_combined_transformer
+
+model:
+  architecture: temporal_transformer
