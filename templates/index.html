@@ -49,7 +49,7 @@
 
     <section class="model-strip"><div><span>02 · MODEL</span><h2>Forecast engine</h2><p>Six history windows are used to forecast the next six windows.</p></div><div class="model-flow"><b>Traffic</b><i>→</i><b>Forecast</b><i>→</i><b>Risk + stage</b></div></section>
 
-    {% if not analysis %}<section class="empty-state"><span>◌</span><h2>Ready to simulate the next six windows</h2><p>Run analysis to unlock the risk timeline, flagged windows, integrated gradients, and audited benchmark.</p><a class="button primary" href="/?sample={{ selected_sample|urlencode }}&analyze=1">Run analysis</a></section>{% else %}
+    {% if analysis %}
     <section id="forecast" class="panel">
       <div class="section-title"><span>03</span><div><p>INFILTRATION PREDICTION ENGINE</p><h2>Full-timeline risk forecast</h2></div><div class="threshold">OPERATING THRESHOLD <b>0.20</b></div></div>
       <canvas id="timeline" height="300" aria-label="Malicious risk timeline"></canvas>
