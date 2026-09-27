@@ -50,6 +50,16 @@ The stage taxonomy includes four categories with no defensible flow-level traini
 evidence in this corpus: `RECONNAISSANCE`, `LATERAL_MOVEMENT`,
 `COMMAND_AND_CONTROL`, and `EXFILTRATION`. These are documented scope boundaries.
 
+### Results at a glance
+
+The report figures are reproducible with `python scripts/generate_result_figures.py`:
+
+![Architecture F1 comparison](docs/figures/architecture_f1.svg)
+
+![Architecture FPR comparison](docs/figures/architecture_fpr.svg)
+
+![TCN validation loss](docs/figures/tcn_validation_loss.svg)
+
 ## Run the demonstration app
 
 The app is fully offline and uses the trained epoch-16 probabilistic LSTM, its
