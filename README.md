@@ -54,11 +54,11 @@ evidence in this corpus: `RECONNAISSANCE`, `LATERAL_MOVEMENT`,
 
 The report figures are reproducible with `python scripts/generate_result_figures.py`:
 
-![Architecture F1 comparison](docs/figures/architecture_f1.svg)
+![Architecture F1 comparison](docs/figures/architecture_f1.png)
 
-![Architecture FPR comparison](docs/figures/architecture_fpr.svg)
+![Architecture FPR comparison](docs/figures/architecture_fpr.png)
 
-![TCN validation loss](docs/figures/tcn_validation_loss.svg)
+![TCN validation loss](docs/figures/tcn_validation_loss.png)
 
 ## Run the demonstration app
 

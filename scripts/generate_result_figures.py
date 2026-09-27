@@ -6,6 +6,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from PIL import Image, ImageDraw, ImageFont
+
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "figures"
 OUT.mkdir(parents=True, exist_ok=True)
@@ -66,7 +68,52 @@ def line_chart(path: Path) -> None:
     path.write_text("".join(out))
 
 
+def png_bar(path: Path, title: str, values: dict[str, list[float | None]]) -> None:
+    image = Image.new("RGB", (1400, 760), "white")
+    draw = ImageDraw.Draw(image)
+    draw.text((700, 25), title, fill="#111827", anchor="ma")
+    colors = ["#2563eb", "#f59e0b", "#7c3aed", "#059669"]
+    left, top, right, bottom = 120, 100, 1360, 650
+    for tick in range(6):
+        y = bottom - tick * (bottom-top) / 5
+        draw.line((left, y, right, y), fill="#e5e7eb")
+        draw.text((left-15, y), f"{tick/5:.1f}", fill="#374151", anchor="rm")
+    group = (right-left) / len(FAMILIES)
+    names = list(values)
+    bar = group / (len(names)+1)
+    for gi, family in enumerate(FAMILIES):
+        gx = left + gi * group
+        draw.text((gx+group/2, bottom+25), family, fill="#374151", anchor="ma")
+        for mi, name in enumerate(names):
+            value = values[name][gi]
+            if value is None: continue
+            x = gx + (mi+.25)*bar; y = bottom - value*(bottom-top)
+            draw.rectangle((x, y, x+bar*.7, bottom), fill=colors[mi])
+            draw.text((x+bar*.35, y-8), f"{value:.2f}", fill="#111827", anchor="ms")
+    for i, name in enumerate(names):
+        x = 140 + i*220
+        draw.rectangle((x, 700, x+18, 718), fill=colors[i])
+        draw.text((x+25, 709), name, fill="#374151", anchor="lm")
+    image.save(path)
+
+
+def png_line(path: Path) -> None:
+    vals = [1.6709, 1.6611, .4211, .2094, .3293, .4352, .8948, 1.3763, 4.2932, 2.8201, 6.1516, 5.4542]
+    image = Image.new("RGB", (1400, 700), "white")
+    draw = ImageDraw.Draw(image); left, top, right, bottom = 100, 85, 1360, 590; ymax = 6.5
+    draw.text((700, 25), "TCN validation-loss curve", fill="#111827", anchor="ma")
+    for tick in range(7):
+        y = bottom - tick/ymax*(bottom-top); draw.line((left,y,right,y), fill="#e5e7eb"); draw.text((left-12,y), str(tick), fill="#374151", anchor="rm")
+    points = [(left+i*(right-left)/11, bottom-v/ymax*(bottom-top)) for i,v in enumerate(vals)]
+    draw.line(points, fill="#2563eb", width=5)
+    for i,(x,y) in enumerate(points): draw.ellipse((x-6,y-6,x+6,y+6), fill="#2563eb"); draw.text((x,bottom+25), str(i+1), fill="#374151", anchor="ma")
+    image.save(path)
+
+
 bar_chart(OUT / "architecture_f1.svg", "Best-observed F1 by attack family", F1)
 bar_chart(OUT / "architecture_fpr.svg", "Best-observed false-positive rate by attack family", FPR)
 line_chart(OUT / "tcn_validation_loss.svg")
+png_bar(OUT / "architecture_f1.png", "Best-observed F1 by attack family", F1)
+png_bar(OUT / "architecture_fpr.png", "Best-observed false-positive rate by attack family", FPR)
+png_line(OUT / "tcn_validation_loss.png")
 print(f"Wrote figures to {OUT}")
