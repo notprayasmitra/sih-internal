@@ -5,17 +5,30 @@ future-state forecasting, attack-stage progression, and early cyber-risk warning
 
 The implementation follows `cybersecurity_world_model_dataset_KT_v2.md`.
 
-## Quick start
+## Setup instructions
+
+Requirements: Python 3.11+, `uv`, and Git. Clone the repository, enter it, and
+install the locked environment:
+
+```bash
+git clone https://github.com/shreyanshjain05/sih-internal-ps2.git
+cd sih-internal-ps2
+uv sync --extra pcap --extra dev
+```
+
+For a fresh checkout, prepare the starter data with:
 
 ```bash
 cp .env.example .env
 ./scripts/download_datasets.sh --starter
-./training.sh
 ```
 
-`training.sh` creates `.venv`, installs locked dependencies, chooses CUDA, Apple
-Metal (MPS), or CPU automatically, validates the configuration and data, and
-starts training.
+`training.sh` validates the configuration and data, selects CUDA/MPS/CPU, and
+starts a training run:
+
+```bash
+./training.sh --config configs/experiment/smoke.yaml
+```
 
 For a no-download smoke test:
 

@@ -95,7 +95,8 @@ def png_bar(path: Path, title: str, values: dict[str, list[float | None]]) -> No
         draw.text((gx+group/2, bottom+50), family, fill="#374151", anchor="ma", font=font(32))
         for mi, name in enumerate(names):
             value = values[name][gi]
-            if value is None: continue
+            if value is None:
+                continue
             x = gx + (mi+.25)*bar; y = bottom - value*(bottom-top)
             draw.rectangle((x, y, x+bar*.7, bottom), fill=colors[mi])
             draw.text((x+bar*.35, y-16), f"{value:.2f}", fill="#111827", anchor="ms", font=font(26))
@@ -115,13 +116,12 @@ def png_line(path: Path) -> None:
         y = bottom - tick/ymax*(bottom-top); draw.line((left,y,right,y), fill="#e5e7eb"); draw.text((left-24,y), str(tick), fill="#374151", anchor="rm", font=font(30))
     points = [(left+i*(right-left)/11, bottom-v/ymax*(bottom-top)) for i,v in enumerate(vals)]
     draw.line(points, fill="#2563eb", width=5)
-    for i,(x,y) in enumerate(points): draw.ellipse((x-12,y-12,x+12,y+12), fill="#2563eb"); draw.text((x,bottom+50), str(i+1), fill="#374151", anchor="ma", font=font(28))
+    for i,(x,y) in enumerate(points):
+        draw.ellipse((x-12,y-12,x+12,y+12), fill="#2563eb")
+        draw.text((x,bottom+50), str(i+1), fill="#374151", anchor="ma", font=font(28))
     image.save(path)
 
 
-bar_chart(OUT / "architecture_f1.svg", "Best-observed F1 by attack family", F1)
-bar_chart(OUT / "architecture_fpr.svg", "Best-observed false-positive rate by attack family", FPR)
-line_chart(OUT / "tcn_validation_loss.svg")
 png_bar(OUT / "architecture_f1.png", "Best-observed F1 by attack family", F1)
 png_bar(OUT / "architecture_fpr.png", "Best-observed false-positive rate by attack family", FPR)
 png_line(OUT / "tcn_validation_loss.png")
