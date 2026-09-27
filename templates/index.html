@@ -42,7 +42,7 @@
           </form>
         </div>
       </div>
-      <div class="active-source"><div><span>ACTIVE EVIDENCE</span><strong>{{ loaded.name }}</strong><small>{{ loaded.source_kind }} · {{ loaded.origin.isoformat() }} → {{ loaded.end.isoformat() }}</small></div></div>
+      <div class="active-source"><div><span>ACTIVE EVIDENCE</span><strong>{{ loaded.name }}</strong><small>{{ loaded.source_kind }} · {{ loaded.origin.isoformat() }} → {{ loaded.end.isoformat() }}</small></div><a class="button primary" href="/?sample={{ selected_sample|urlencode }}&analyze=1">Run analysis <b>→</b></a></div>
       <div class="metric-grid four"><article><span>WINDOWS</span><strong>{{ "{:,}".format(window_count) }}</strong></article><article><span>FEATURES</span><strong>{{ feature_count }}</strong></article><article><span>FLOW POPULATED</span><strong>{{ flow_available }}</strong></article><article><span>PACKET-DERIVED</span><strong>{{ packet_available }}</strong></article></div>
       <details><summary>Inspect extracted feature matrix and availability</summary><div class="table-scroll"><table><thead><tr>{% for c in matrix_columns %}<th>{{ c }}</th>{% endfor %}</tr></thead><tbody>{% for row in matrix_rows %}<tr>{% for c in matrix_columns %}<td>{{ "%.4g"|format(row[c]) if row[c] is number else row[c] }}</td>{% endfor %}</tr>{% endfor %}</tbody></table></div><div class="availability-list">{% for row in availability_rows %}<span class="{{ 'on' if row.populated else 'off' }}">{{ row.feature }}</span>{% endfor %}</div></details>
     </section>
