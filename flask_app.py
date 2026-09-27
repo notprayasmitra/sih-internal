@@ -122,6 +122,11 @@ def index():
     )
 
 
+@app.get("/how-it-works")
+def how_it_works():
+    return render_template("how_it_works.html")
+
+
 @app.post("/upload")
 def upload():
     uploaded = request.files.get("traffic_file")

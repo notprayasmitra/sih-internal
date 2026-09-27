@@ -8,8 +8,8 @@
 </head>
 <body>
   <header class="topbar">
-    <a class="brand" href="/"><span class="brand-mark">र</span><span>RakshaDrishti</span></a>
-    <nav><a href="#signals">Data</a><a href="#forecast">Risk</a><a href="#explain">Evidence</a></nav>
+    <a class="brand" href="/"><span>RakshaDrishti</span></a>
+    <nav><a href="#signals">Data</a><a href="#forecast">Risk</a><a href="#explain">Evidence</a><a href="/how-it-works">How it works</a></nav>
   </header>
 
   <main>
@@ -73,8 +73,8 @@
     </section>
     {% endif %}
 
-    <section class="panel summary"><div class="section-title"><span>07</span><div><p>MODEL & DATA SUMMARY</p><h2>Built on real, trajectory-level evidence</h2></div></div><div class="summary-grid"><article><b>11</b><span>real trajectories</span></article><article><b>7</b><span>attack families</span></article><article><b>7 / 4</b><span>train / validation</span></article><article><b>51</b><span>network-state features</span></article></div><p>CIC-IDS2018 + CTU-13 · whole-trajectory split · probabilistic state, stage, malicious-risk, and compromise-risk heads · full write-up in <code>docs/MODEL_RESULTS.md</code></p></section>
+    <section class="panel summary"><div class="section-title"><span>07</span><div><p>MODEL & DATA SUMMARY</p><h2>Built on real, trajectory-level evidence</h2></div></div><div class="summary-grid"><article><b>11</b><span>real trajectories</span></article><article><b>7</b><span>attack families</span></article><article><b>7 / 4</b><span>train / validation</span></article><article><b>51</b><span>network-state features</span></article></div><p>CIC-IDS2018 + CTU-13 · whole-trajectory split · risk and attack-stage forecasting</p></section>
   </main>
-  <footer><span>RakshaDrishti · SIH 2025</span><span>Network risk analysis</span></footer>
+  <footer><span>RakshaDrishti · SIH 2026</span><span>Network risk analysis</span></footer>
   {% if analysis %}<script>window.CYBERWORLD_TIMELINE={{ analysis.timeline|tojson }};window.CYBERWORLD_THRESHOLD=0.2;</script><script src="{{ url_for('static', filename='app.js') }}"></script>{% endif %}
 </body></html>

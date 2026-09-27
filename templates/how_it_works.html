@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>How it works · RakshaDrishti</title><link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}"></head>
+<body>
+  <header class="topbar"><a class="brand" href="/">RakshaDrishti</a><nav><a href="/">Dashboard</a><a href="/how-it-works">How it works</a></nav></header>
+  <main class="how-page">
+    <section class="hero how-hero"><div><p class="eyebrow">SYSTEM APPROACH</p><h1>How it works</h1><p class="lede">RakshaDrishti turns network-flow evidence into a short, explainable forecast of malicious risk and attack stage.</p></div></section>
+    <section class="panel how-grid">
+      <article><span class="step">01</span><h2>Ingest</h2><p>Choose one of the prepared CIC-IDS2018 or CTU-13 trajectories, or upload a supported CSV/PCAP file.</p></article>
+      <article><span class="step">02</span><h2>Prepare</h2><p>Flows are validated, timestamped, mapped to the common label taxonomy, and aggregated into 10-second windows.</p></article>
+      <article><span class="step">03</span><h2>Build features</h2><p>Each window becomes a 51-feature network state with availability masks for missing measurements.</p></article>
+      <article><span class="step">04</span><h2>Forecast</h2><p>The probabilistic LSTM reads six history windows and forecasts the next six windows autoregressively.</p></article>
+      <article><span class="step">05</span><h2>Score risk</h2><p>Separate heads estimate malicious risk, compromise risk, future state, and attack stage.</p></article>
+      <article><span class="step">06</span><h2>Explain</h2><p>The dashboard shows flagged windows, peak risk, predicted stage, forecast context, and supporting features.</p></article>
+    </section>
+    <section class="panel how-notes"><h2>Evaluation approach</h2><p>The model was evaluated using complete held-out trajectories rather than random flow rows. The final split uses seven trajectories for training and four for validation across DDoS, infiltration, Neris, and Rbot families. Alternative JEPA, Transformer, and TCN architectures were tested on the same split; the LSTM remains deployed as the most consistent performer.</p><a class="button primary" href="/">Open dashboard</a></section>
+  </main>
+  <footer><span>RakshaDrishti · SIH 2026</span><span>Network risk analysis</span></footer>
+</body>
+</html>
