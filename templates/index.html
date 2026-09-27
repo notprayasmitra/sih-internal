@@ -35,10 +35,10 @@
         </div>
         <div class="source-card upload-card">
           <h3>Ingest PCAP or CSV</h3><p>Run the canonical adapter and 51-feature extraction pipeline.</p>
-          <form method="post" action="/upload" enctype="multipart/form-data" class="stack">
+          <form method="post" action="/upload" enctype="multipart/form-data" class="stack upload-form">
             <input type="file" name="traffic_file" accept=".csv,.pcap,.pcapng" required>
             <select name="dataset_id"><option value="cic_ids2018">CIC-IDS2018 CSV</option><option value="ctu13">CTU-13 CSV</option><option value="dapt2020">DAPT2020 CSV</option><option value="unsw_nb15">UNSW-NB15 CSV</option></select>
-            <button class="button secondary" type="submit">Extract & analyse</button>
+            <button class="button secondary" type="submit">Extract & analyse</button><span class="upload-status" aria-live="polite" hidden>Extracting features and building windows…</span>
           </form>
         </div>
       </div>
@@ -75,5 +75,6 @@
     <section class="panel summary"><div class="section-title"><span>07</span><div><p>MODEL & DATA SUMMARY</p><h2>Built on real, trajectory-level evidence</h2></div></div><div class="summary-grid"><article><b>11</b><span>real trajectories</span></article><article><b>7</b><span>attack families</span></article><article><b>7 / 4</b><span>train / validation</span></article><article><b>51</b><span>network-state features</span></article></div><p>CIC-IDS2018 + CTU-13 · whole-trajectory split · risk and attack-stage forecasting</p></section>
   </main>
   <footer><span>RakshaDrishti · SIH 2026</span><span>Network risk analysis</span></footer>
+  <script>document.querySelectorAll('.upload-form').forEach(function(form){form.addEventListener('submit',function(){var status=form.querySelector('.upload-status');var button=form.querySelector('button');if(status){status.hidden=false;}if(button){button.disabled=true;button.textContent='Processing…';}});});</script>
   {% if analysis %}<script>window.CYBERWORLD_TIMELINE={{ analysis.timeline|tojson }};window.CYBERWORLD_THRESHOLD=0.2;</script><script src="{{ url_for('static', filename='app.js') }}"></script>{% endif %}
 </body></html>
