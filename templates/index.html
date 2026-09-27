@@ -18,7 +18,6 @@
     <section class="hero">
       <div><p class="eyebrow">PREDICTIVE CYBER DEFENCE</p><h1>See the attack path<br><em>before it unfolds.</em></h1>
       <p class="lede">A probabilistic network world model that turns raw traffic into forward-looking risk, attack-stage forecasts, and evidence-backed explanations.</p></div>
-      <div class="hero-orbit"><div class="orbit-ring"></div><div class="risk-core"><small>MODEL</small><strong>LSTM</strong><span>epoch {{ checkpoint_epoch }}</span></div></div>
     </section>
 
     <section id="signals" class="panel input-panel">
@@ -81,4 +80,3 @@
   <footer><span>CyberWorld · SIH Predictive Defence</span><span>Local inference only · no external APIs</span></footer>
   {% if analysis %}<script>window.CYBERWORLD_TIMELINE={{ analysis.timeline|tojson }};window.CYBERWORLD_THRESHOLD=0.2;</script><script src="{{ url_for('static', filename='app.js') }}"></script>{% endif %}
 </body></html>
-
