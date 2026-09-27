@@ -6,7 +6,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
 
-from flask import Flask, render_template, request
+from flask import Flask, redirect, render_template, request, url_for
 
 from cyberworld.config import load_config
 from cyberworld.data.normalization import StandardNormalizer
@@ -138,6 +138,12 @@ def upload():
         uploaded.save(path)
         loaded = load_uploaded_input(path, dataset_id=dataset_id, config=config)
     return render_template("index.html", **build_page(loaded, run_analysis=True))
+
+
+@app.get("/upload")
+def upload_get():
+    """Keep accidental navigation to the upload endpoint user-friendly."""
+    return redirect(url_for("index"))
 
 
 if __name__ == "__main__":
